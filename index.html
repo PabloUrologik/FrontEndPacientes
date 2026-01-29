@@ -1,0 +1,325 @@
+<!--Primer Webhook
+{
+  "Respuesta": true,
+  "Id_Procedimiento": 5050,
+  "Nombre_del_Paciente": "Juan Pérez García",
+  "Tipo_de_procedimiento": "Ureteroscopia Flexible",
+  "Fecha": "2026-01-28",
+  "Medico": "Dr. Alejandro Ortega",
+  "Hospital": "Hospital Urologik Centro"
+}
+-->
+<!--segundo Webhook
+{
+  "Insumos": [
+    {
+      "Id": "INS-001",
+      "Nombre": "Catéter Doble J 6Fr",
+      "Estado": "Disponible",
+      "Cantidad": 15
+    },
+    {
+      "Id": "INS-002",
+      "Nombre": "Guía Hidrofílica 0.035",
+      "Estado": "Disponible",
+      "Cantidad": 8
+    }
+  ],
+  "Equipo_Medico": [
+    {
+      "Id": "EQ-77",
+      "Nombre": "Láser Holmium 30W",
+      "Estado": "Operativo"
+    },
+    {
+      "Id": "EQ-88",
+      "Nombre": "Torre de Videocirugía",
+      "Estado": "Operativo"
+    }
+  ]
+}
+-->
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Actualizar Procedimiento Médico | Urologik</title>
+    <style>
+        :root {
+            --primary: #007bff; --dark: #0056b3; --bg: #f4f7f9; --text: #333;
+            --accent: #17a2b8; --success: #28a745; --danger: #dc3545; --border: #ced4da;
+        }
+
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: var(--text); }
+        .container { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); position: relative; }
+        h2, h3 { color: var(--dark); margin-top: 0; }
+
+        .search-box { text-align: center; }
+        .input-group { margin: 15px 0; text-align: left; }
+        label { font-weight: 600; display: block; margin-bottom: 8px; }
+        input, select { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; box-sizing: border-box; font-size: 14px; outline: none; }
+        
+        .btn { border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; text-align: center; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-primary { background: var(--primary); color: white; width: 100%; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-accent { background: var(--accent); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn:disabled { opacity: 0.7; cursor: not-allowed; }
+
+        .loader { width: 18px; height: 18px; border: 3px solid #FFF; border-bottom-color: transparent; border-radius: 50%; display: none; animation: rotation 1s linear infinite; }
+        @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .results-wrapper { display: none; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 800px; margin-bottom: 15px; }
+        th { background: #f8f9fa; padding: 12px; text-align: left; font-size: 12px; border-bottom: 2px solid #eee; }
+        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+
+        #updateSection { display: none; margin-top: 20px; }
+        .update-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .update-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .file-card { background: #ffffff; padding: 15px; border-radius: 10px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+        .file-card label { font-size: 13px; font-weight: 700; color: #555; }
+        .file-input-wrapper { position: relative; overflow: hidden; display: inline-block; }
+        .file-input-wrapper input[type="file"] { position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+        .custom-file-btn { border: 1px solid var(--primary); color: var(--primary); background: white; padding: 8px; border-radius: 6px; font-size: 12px; font-weight: 600; width: 100%; text-align: center; box-sizing: border-box; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .dynamic-list { margin-top: 25px; border-top: 2px solid #eee; padding-top: 20px; }
+        .list-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+        .list-row select { flex: 2; }
+        .list-row input.qty-input { flex: 0.4; min-width: 80px; text-align: center; }
+        .stock-label { font-size: 11px; color: #666; margin-top: -8px; margin-bottom: 8px; display: block; }
+
+        @media (max-width: 600px) { .update-grid { grid-template-columns: 1fr; } .update-header { flex-direction: column; align-items: flex-start; gap: 10px; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="card search-box">
+        <h2>Actualizar Procedimiento Médico</h2>
+        <div class="input-group">
+            <label for="procedureId">ID del Procedimiento:</label>
+            <input type="number" id="procedureId" placeholder="Ej: 5050" onkeydown="handleEnter(event)">
+        </div>
+        <button class="btn btn-primary" id="btnSearch" onclick="ejecutarBusqueda()">
+            <span id="btnTextSearch">Buscar Procedimiento</span>
+            <div class="loader" id="loaderSearch"></div>
+        </button>
+    </div>
+
+    <div id="resultsArea" class="card results-wrapper">
+        <h3>Información Localizada</h3>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID Procedimiento</th>
+                        <th>Paciente</th>
+                        <th>Tipo</th>
+                        <th>Fecha</th>
+                        <th>Médico</th>
+                        <th>Hospital</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+        <button id="btnFetchUpdate" class="btn btn-accent" style="width: 100%;" onclick="cargarCatalogosYMostrar()">Actualizar información del procedimiento</button>
+    </div>
+
+    <div id="updateSection" class="card">
+        <div class="update-header">
+            <h3>Carga de Documentación y Materiales</h3>
+            <button class="btn btn-secondary" style="padding: 8px 15px; font-size: 13px;" onclick="limpiarSeccionActualizacion()">Limpiar Campos</button>
+        </div>
+        
+        <div class="update-grid" id="multimediaGrid"></div>
+
+        <div class="dynamic-list">
+            <label><strong>Insumo / Material Quirúrgico</strong></label>
+            <div id="listaInsumos"></div>
+            <button class="btn btn-accent" style="padding: 8px 15px; font-size: 12px; margin-top:10px;" onclick="agregarInsumo()">+ Agregar Insumo</button>
+        </div>
+
+        <div class="dynamic-list">
+            <label><strong>Equipo Médico</strong></label>
+            <div id="listaEquipos"></div>
+            <button class="btn btn-accent" style="padding: 8px 15px; font-size: 12px; margin-top:10px;" onclick="agregarEquipo()">+ Agregar Equipo Médico</button>
+        </div>
+
+        <button class="btn btn-success" id="btnGuardar" style="width: 100%; margin-top: 40px; font-size: 18px;" onclick="enviarActualizacion()">
+            <span id="btnTextGuardar">Guardar Cambios</span>
+            <div class="loader" id="loaderGuardar"></div>
+        </button>
+    </div>
+</div>
+
+<script>
+    let catalogoInsumos = [];
+    let catalogoEquipos = [];
+
+    const camposMultimedia = ["Entrada (Multimedia)", "Remisión (Multimedia)", "Remisión Sellada (Multimedia)", "OC (Multimedia)", "OT (Multimedia)", "Salida (Multimedia)", "Comprobante de Pago (Multimedia)", "Factura PDF (Multimedia)", "Factura XML (Multimedia)", "Renta Equipo XML (Multimedia)"];
+
+    const grid = document.getElementById('multimediaGrid');
+    camposMultimedia.forEach((label, index) => {
+        const id = `file_${index}`;
+        grid.innerHTML += `<div class="file-card"><label>${label}</label><div class="file-input-wrapper"><div class="custom-file-btn" id="label_${id}">Seleccionar archivo</div><input type="file" id="${id}" data-label="${label}" onchange="updateFileName('${id}')"></div></div>`;
+    });
+
+    function handleEnter(e) { if (e.key === 'Enter') { e.preventDefault(); ejecutarBusqueda(); } }
+
+    function updateFileName(id) {
+        const input = document.getElementById(id);
+        const label = document.getElementById(`label_${id}`);
+        if (input.files.length > 0) {
+            label.innerText = "✅ " + input.files[0].name;
+            label.style.color = "var(--success)";
+            label.style.borderColor = "var(--success)";
+        }
+    }
+
+    async function ejecutarBusqueda() {
+        const id = document.getElementById('procedureId').value;
+        const btn = document.getElementById('btnSearch');
+        const loader = document.getElementById('loaderSearch');
+        const text = document.getElementById('btnTextSearch');
+
+        if (!id) return;
+        btn.disabled = true; loader.style.display = "inline-block"; text.innerText = "Buscando...";
+
+        try {
+            const response = await fetch(`https://nativasolutions.app.n8n.cloud/webhook-test/29dc7d1c-5491-4255-9423-37c92586df1c?id=${id}`, { cache: 'no-cache' });
+            const data = await response.json();
+            if (data.Respuesta === true || data.Respuesta === "true") {
+                document.getElementById('tableBody').innerHTML = `<tr><td>${data.Id_Procedimiento}</td><td>${data.Nombre_del_Paciente}</td><td>${data.Tipo_de_procedimiento}</td><td>${data.Fecha}</td><td>${data.Medico}</td><td>${data.Hospital}</td></tr>`;
+                document.getElementById('resultsArea').style.display = "block";
+            } else { alert("No encontrado."); }
+        } catch (e) { alert("Error de conexión."); }
+        finally { btn.disabled = false; loader.style.display = "none"; text.innerText = "Buscar Procedimiento"; }
+    }
+
+    async function cargarCatalogosYMostrar() {
+        const id = document.getElementById('procedureId').value;
+        const btn = document.getElementById('btnFetchUpdate');
+        btn.disabled = true; btn.innerText = "Cargando catálogos...";
+        try {
+            const response = await fetch(`https://nativasolutions.app.n8n.cloud/webhook-test/067686a9-37cd-48a0-b689-44036086c2bb?id=${id}`, { cache: 'no-cache' });
+            const data = await response.json();
+            catalogoInsumos = data.Insumos || [];
+            catalogoEquipos = data.Equipo_Medico || [];
+            document.getElementById('updateSection').style.display = "block";
+            window.scrollTo({ top: document.getElementById('updateSection').offsetTop - 20, behavior: 'smooth' });
+        } catch (e) { alert("Error al cargar materiales."); }
+        finally { btn.disabled = false; btn.innerText = "Actualizar información del procedimiento"; }
+    }
+
+    function agregarInsumo() {
+        const container = document.getElementById('listaInsumos');
+        const div = document.createElement('div');
+        div.className = 'list-container';
+        let optionsHtml = catalogoInsumos.map(item => `<option value="${item.Id}" data-nombre="${item.Nombre}" data-stock="${item.Cantidad}">${item.Nombre} [Disp: ${item.Cantidad}]</option>`).join('');
+        div.innerHTML = `<div class="list-row"><select onchange="validarStock(this)"><option value="" disabled selected>Seleccione...</option>${optionsHtml}</select><input type="number" class="qty-input" min="1" value="1" oninput="validarStock(this)"><button class="btn btn-danger" onclick="this.closest('.list-container').remove()">✕</button></div><span class="stock-label"></span>`;
+        container.appendChild(div);
+    }
+
+    function validarStock(elemento) {
+        const row = elemento.closest('.list-container');
+        const select = row.querySelector('select');
+        const input = row.querySelector('.qty-input');
+        const label = row.querySelector('.stock-label');
+        const option = select.options[select.selectedIndex];
+        if(!option || !select.value) return;
+        const stockMax = parseInt(option.getAttribute('data-stock')) || 0;
+        if (parseInt(input.value) > stockMax) { input.value = stockMax; alert(`Stock máximo: ${stockMax}`); }
+        label.innerText = `Máximo disponible: ${stockMax} piezas.`;
+    }
+
+    function agregarEquipo() {
+        const container = document.getElementById('listaEquipos');
+        const div = document.createElement('div');
+        div.className = 'list-row';
+        let optionsHtml = catalogoEquipos.map(item => `<option value="${item.Id}" data-nombre="${item.Nombre}">${item.Nombre} [${item.Estado}]</option>`).join('');
+        div.innerHTML = `<select style="flex: 3;"><option value="" disabled selected>Seleccione Equipo...</option>${optionsHtml}</select><button class="btn btn-danger" onclick="this.parentElement.remove()">✕</button>`;
+        container.appendChild(div);
+    }
+
+    function limpiarSeccionActualizacion() {
+        if(!confirm("¿Desea borrar los datos actuales de esta sección?")) return;
+        document.querySelectorAll('input[type="file"]').forEach(i => i.value = "");
+        document.querySelectorAll('.custom-file-btn').forEach(l => { l.innerText = "Seleccionar archivo"; l.style = ""; });
+        document.getElementById('listaInsumos').innerHTML = "";
+        document.getElementById('listaEquipos').innerHTML = "";
+    }
+
+    // WEBHOOK 3: Guardar Cambios (POST)
+    async function enviarActualizacion() {
+        if (!confirm("¿Está seguro de que desea guardar los cambios en el procedimiento?")) return;
+
+        const btn = document.getElementById('btnGuardar');
+        const loader = document.getElementById('loaderGuardar');
+        const text = document.getElementById('btnTextGuardar');
+
+        // Recopilar Insumos seleccionados
+        const insumosSeleccionados = [];
+        document.querySelectorAll('#listaInsumos .list-container').forEach(item => {
+            const sel = item.querySelector('select');
+            if (sel.value) {
+                insumosSeleccionados.push({
+                    id: sel.value,
+                    nombre: sel.options[sel.selectedIndex].getAttribute('data-nombre'),
+                    cantidad: item.querySelector('.qty-input').value
+                });
+            }
+        });
+
+        // Recopilar Equipos seleccionados
+        const equiposSeleccionados = [];
+        document.querySelectorAll('#listaEquipos select').forEach(sel => {
+            if (sel.value) {
+                equiposSeleccionados.push({
+                    id: sel.value,
+                    nombre: sel.options[sel.selectedIndex].getAttribute('data-nombre')
+                });
+            }
+        });
+
+        // Payload Final
+        const payload = {
+            id_procedimiento: document.getElementById('procedureId').value,
+            fecha_actualizacion: new Date().toISOString(),
+            insumos: insumosSeleccionados,
+            equipos_medicos: equiposSeleccionados,
+            archivos_adjuntos: Array.from(document.querySelectorAll('input[type="file"]')).map(f => ({
+                campo: f.getAttribute('data-label'),
+                archivo: f.files[0] ? f.files[0].name : "No adjuntado"
+            }))
+        };
+
+        btn.disabled = true; loader.style.display = "inline-block"; text.innerText = "Guardando...";
+
+        try {
+            const response = await fetch("https://nativasolutions.app.n8n.cloud/webhook-test/fbd6165b-b3a3-412d-af2b-f118395678e0", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                alert("✅ Los cambios han sido guardados exitosamente.");
+                location.reload(); // Reiniciar para nueva gestión
+            } else {
+                throw new Error();
+            }
+        } catch (e) {
+            alert("❌ Error al guardar los cambios. Intente de nuevo.");
+        } finally {
+            btn.disabled = false; loader.style.display = "none"; text.innerText = "Guardar Cambios";
+        }
+    }
+</script>
+</body>
+</html>
